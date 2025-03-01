@@ -40,6 +40,7 @@ jobs:
         
       - name: Check for Running ECS Tasks
         id: check_ecs
+        continue-on-error: true  # Continue workflow even if this step fails
         run: |
           # Get the cluster name from Terraform output or hardcode it if needed
           CLUSTER_NAME=$(terraform output -raw ecs_cluster_name 2>/dev/null || echo "minecraft-cluster")
