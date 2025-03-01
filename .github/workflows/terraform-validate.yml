@@ -65,9 +65,13 @@ jobs:
         run: |
           infracost breakdown --path=tfplan --format=json --out-file=infracost.json
           infracost output --path=infracost.json --format=html --out-file=infracost.html
-          infracost output --path=infracost.json --format=table --out-file=infracost-table.txt
+          
+          # Generate markdown output for PR description
+          infracost output --path=infracost.json --format=markdown --show-skipped --out-file=infracost.md
+          
+          # Save the markdown content to the output
           echo "INFRACOST_OUTPUT<<EOF" >> $GITHUB_OUTPUT
-          cat infracost-table.txt >> $GITHUB_OUTPUT
+          cat infracost.md >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Upload Infracost Report
@@ -132,14 +136,9 @@ jobs:
             ${{ steps.changed-files.outputs.files }}
             ```
             
-            ### Infracost Analysis:
-            <details>
-            <summary>Click to expand cost analysis</summary>
+            ### 💰 Infracost Analysis:
             
-            ```
             ${{ steps.infracost.outputs.INFRACOST_OUTPUT }}
-            ```
-            </details>
             
             ### Terraform Plan:
             <details>
@@ -170,10 +169,9 @@ jobs:
             ${{ steps.changed-files.outputs.files }}
             ```
             
-            ### Infracost Analysis:
-            ```
+            ### 💰 Infracost Analysis:
+            
             ${{ steps.infracost.outputs.INFRACOST_OUTPUT }}
-            ```
           prerelease: true
           generateReleaseNotes: true
           makeLatest: false
