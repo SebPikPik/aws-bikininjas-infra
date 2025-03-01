@@ -66,8 +66,8 @@ jobs:
           infracost breakdown --path=tfplan --format=json --out-file=infracost.json
           infracost output --path=infracost.json --format=html --out-file=infracost.html
           
-          # Generate markdown output for PR description
-          infracost output --path=infracost.json --format=markdown --show-skipped --out-file=infracost.md
+          # Generate GitHub comment format for PR description
+          infracost output --path=infracost.json --format=github-comment --show-skipped --out-file=infracost.md
           
           # Save the markdown content to the output
           echo "INFRACOST_OUTPUT<<EOF" >> $GITHUB_OUTPUT
