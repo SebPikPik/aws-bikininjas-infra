@@ -82,21 +82,43 @@ jobs:
         run: |
           echo "files=$(git diff --name-only origin/master...HEAD | tr '\n' ' ')" >> $GITHUB_OUTPUT
 
-      - name: Get commit messages
+      - name: Get commit messages and determine commit type
         id: commits
         run: |
           COMMITS=$(git log --pretty=format:"- %s" origin/master...HEAD)
           echo "commits<<EOF" >> $GITHUB_OUTPUT
           echo "$COMMITS" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
+          
+          # Extract commit type from branch name or use default
+          BRANCH_NAME="${{ github.ref_name }}"
+          if [[ $BRANCH_NAME == feat/* || $BRANCH_NAME == feature/* ]]; then
+            echo "type=feat" >> $GITHUB_OUTPUT
+            echo "scope=infra" >> $GITHUB_OUTPUT
+          elif [[ $BRANCH_NAME == fix/* || $BRANCH_NAME == bugfix/* ]]; then
+            echo "type=fix" >> $GITHUB_OUTPUT
+            echo "scope=infra" >> $GITHUB_OUTPUT
+          elif [[ $BRANCH_NAME == chore/* ]]; then
+            echo "type=chore" >> $GITHUB_OUTPUT
+            echo "scope=infra" >> $GITHUB_OUTPUT
+          elif [[ $BRANCH_NAME == docs/* ]]; then
+            echo "type=docs" >> $GITHUB_OUTPUT
+            echo "scope=infra" >> $GITHUB_OUTPUT
+          elif [[ $BRANCH_NAME == refactor/* ]]; then
+            echo "type=refactor" >> $GITHUB_OUTPUT
+            echo "scope=infra" >> $GITHUB_OUTPUT
+          else
+            echo "type=feat" >> $GITHUB_OUTPUT
+            echo "scope=infra" >> $GITHUB_OUTPUT
+          fi
 
       - name: Create Pull Request
         id: create-pr
         uses: peter-evans/create-pull-request@v7.0.7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "Terraform changes from ${{ github.ref_name }}"
-          title: "Terraform changes from ${{ github.ref_name }}"
+          commit-message: "${{ steps.commits.outputs.type }}(${{ steps.commits.outputs.scope }}): apply terraform changes from ${{ github.ref_name }}"
+          title: "${{ steps.commits.outputs.type }}(${{ steps.commits.outputs.scope }}): terraform changes from ${{ github.ref_name }}"
           body: |
             ## Terraform Changes
             
