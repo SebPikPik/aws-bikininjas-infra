@@ -120,60 +120,77 @@ jobs:
           commit-message: "${{ steps.commits.outputs.type }}(${{ steps.commits.outputs.scope }}): apply terraform changes from ${{ github.ref_name }}"
           title: "${{ steps.commits.outputs.type }}(${{ steps.commits.outputs.scope }}): terraform changes from ${{ github.ref_name }}"
           body: |
-            ## Terraform Changes
+            ## 🏗️ Terraform Changes - A New Minecraft Adventure!
             
-            This PR contains the following changes:
+            This PR contains the following changes to our Minecraft infrastructure:
             
-            ### Commits:
+            ### 📜 Commit History:
             ${{ steps.commits.outputs.commits }}
             
-            ### Changed Files:
+            ### 🔨 Changed Files:
             ```
             ${{ steps.changed-files.outputs.files }}
             ```
             
-            ### Infracost Analysis:
+            ### 💰 Infracost Analysis:
             <details>
-            <summary>Click to expand cost analysis</summary>
+            <summary>Click to expand the treasure chest of cost analysis</summary>
             
             ```
             ${{ steps.infracost.outputs.INFRACOST_OUTPUT }}
             ```
             </details>
             
-            ### Terraform Plan:
+            ### 📋 Terraform Plan:
             <details>
-            <summary>Click to expand</summary>
+            <summary>Click to reveal the blueprint</summary>
             
             ```
             ${{ steps.plan.outputs.stdout }}
             ```
             </details>
+            
+            > *"A well-crafted infrastructure is like a perfectly designed redstone contraption - complex but elegant."* - Minecraft Server Admin Wisdom
           branch: "terraform-changes/${{ github.ref_name }}"
           base: master
           delete-branch: true
+          labels: |
+            minecraft
+            infrastructure
+            terraform
+            automated-pr
+            needs-review
+            diamond-pickaxe
 
       - name: Create Beta Release
         if: steps.validate.outcome == 'success' && steps.plan.outcome == 'success'
         uses: ncipollo/release-action@v1.13.0
         with:
           tag: "beta-${{ github.sha }}"
-          name: "Beta Release - ${{ github.ref_name }}"
+          name: "⚒️ Beta Release - ${{ github.ref_name }}"
           body: |
-            ## Beta Release from ${{ github.ref_name }}
+            ## 🎮 Minecraft Server Beta Release from ${{ github.ref_name }}
             
-            ### Commits:
+            ### 📜 Changelog:
             ${{ steps.commits.outputs.commits }}
             
-            ### Changed Files:
+            ### 🔨 Crafting Materials (Changed Files):
             ```
             ${{ steps.changed-files.outputs.files }}
             ```
             
-            ### Infracost Analysis:
+            ### 💰 Diamond Cost Analysis:
             ```
             ${{ steps.infracost.outputs.INFRACOST_OUTPUT }}
             ```
+            
+            ### 🧪 Testing Instructions:
+            1. 🏗️ Apply these changes to your test environment
+            2. 🎮 Connect to the Minecraft server
+            3. 🔍 Verify everything works as expected
+            4. 📝 Report any issues in the comments
+            
+            > *"The best Minecraft servers are built with patience, creativity, and a touch of redstone magic."*
           prerelease: true
           generateReleaseNotes: true
           makeLatest: false
