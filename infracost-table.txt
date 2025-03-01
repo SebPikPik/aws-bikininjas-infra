@@ -1,0 +1,57 @@
+Project: SebPikPik/aws-bikininjas-infra/tfplan
+
+ Name                                                                      Monthly Qty  Unit                  Monthly Cost   
+                                                                                                                             
+ module.ecs.aws_ecs_service.minecraft                                                                                        
+ ├─ Per GB per hour                                                                  2  GB                           $7.74   
+ └─ Per vCPU per hour                                                                1  CPU                         $35.48   
+                                                                                                                             
+ module.networking.aws_nat_gateway.main                                                                                      
+ ├─ NAT gateway                                                                    730  hours                       $36.50   
+ └─ Data processed                                                    Monthly cost depends on usage: $0.05 per GB            
+                                                                                                                             
+ module.ecs.aws_lb.minecraft                                                                                                 
+ ├─ Network load balancer                                                          730  hours                       $19.32   
+ └─ Load balancer capacity units                                      Monthly cost depends on usage: $4.60 per LCU           
+                                                                                                                             
+ module.dns.aws_route53_zone.main                                                                                            
+ └─ Hosted zone                                                                      1  months                       $0.50   
+                                                                                                                             
+ module.dns.aws_route53_record.cert_validation["mc.bikininja.click"]                                                         
+ ├─ Standard queries (first 1B)                                       Monthly cost depends on usage: $0.40 per 1M queries    
+ ├─ Latency based routing queries (first 1B)                          Monthly cost depends on usage: $0.60 per 1M queries    
+ └─ Geo DNS queries (first 1B)                                        Monthly cost depends on usage: $0.70 per 1M queries    
+                                                                                                                             
+ module.dns.aws_route53_record.minecraft                                                                                     
+ ├─ Standard queries (first 1B)                                       Monthly cost depends on usage: $0.40 per 1M queries    
+ ├─ Latency based routing queries (first 1B)                          Monthly cost depends on usage: $0.60 per 1M queries    
+ └─ Geo DNS queries (first 1B)                                        Monthly cost depends on usage: $0.70 per 1M queries    
+                                                                                                                             
+ module.ecr.aws_ecr_repository.minecraft                                                                                     
+ └─ Storage                                                           Monthly cost depends on usage: $0.10 per GB            
+                                                                                                                             
+ module.ecs.aws_cloudwatch_log_group.minecraft                                                                               
+ ├─ Data ingested                                                     Monthly cost depends on usage: $0.60 per GB            
+ ├─ Archival Storage                                                  Monthly cost depends on usage: $0.0315 per GB          
+ └─ Insights queries data scanned                                     Monthly cost depends on usage: $0.0059 per GB          
+                                                                                                                             
+ module.storage.aws_efs_file_system.minecraft                                                                                
+ ├─ Storage (standard)                                                Monthly cost depends on usage: $0.33 per GB            
+ ├─ Storage (standard, infrequent access)                             Monthly cost depends on usage: $0.0261 per GB          
+ ├─ Read requests (infrequent access)                                 Monthly cost depends on usage: $0.011 per GB           
+ └─ Write requests (infrequent access)                                Monthly cost depends on usage: $0.011 per GB           
+                                                                                                                             
+ OVERALL TOTAL                                                                                                     $99.53 
+
+*Usage costs can be estimated by updating Infracost Cloud settings, see docs for other options.
+
+──────────────────────────────────
+39 cloud resources were detected:
+∙ 9 were estimated
+∙ 30 were free
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━┓
+┃ Project                                            ┃ Baseline cost ┃ Usage cost* ┃ Total cost ┃
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╋━━━━━━━━━━━━━━━╋━━━━━━━━━━━━━╋━━━━━━━━━━━━┫
+┃ SebPikPik/aws-bikininjas-infra/tfplan              ┃          $100 ┃           - ┃       $100 ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┻━━━━━━━━━━━━━━━┻━━━━━━━━━━━━━┻━━━━━━━━━━━━┛
