@@ -13,12 +13,12 @@ output "task_definition_arn" {
   value       = aws_ecs_task_definition.minecraft.arn
 }
 
-output "alb_dns_name" {
+output "nlb_dns_name" {
   description = "DNS name of the load balancer"
   value       = aws_lb.minecraft.dns_name
 }
 
-output "alb_zone_id" {
+output "nlb_zone_id" {
   description = "Zone ID of the load balancer"
   value       = aws_lb.minecraft.zone_id
 }

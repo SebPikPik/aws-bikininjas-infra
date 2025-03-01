@@ -25,7 +25,7 @@ output "ecs_service_name" {
 
 output "load_balancer_dns" {
   description = "DNS name of the load balancer"
-  value       = module.ecs.alb_dns_name
+  value       = module.ecs.nlb_dns_name
 }
 
 output "efs_id" {

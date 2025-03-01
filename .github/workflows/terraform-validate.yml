@@ -1,0 +1,157 @@
+name: Terraform Validate and PR
+
+on:
+  push:
+    branches-ignore:
+      - master
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+env:
+  AWS_REGION: eu-west-3
+  TF_VERSION: 1.10.5
+
+jobs:
+  terraform-validate:
+    name: Terraform Validate and Plan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4.1.0
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3.1.2
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init
+        id: init
+        run: terraform init
+
+      - name: Terraform Format
+        id: fmt
+        run: terraform fmt -check -recursive
+        continue-on-error: true
+
+      - name: Terraform Validate
+        id: validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -no-color -out=tfplan
+        continue-on-error: true
+
+      - name: Setup Infracost
+        uses: infracost/actions/setup@v3
+        with:
+          api-key: ${{ secrets.INFRACOST_API_KEY }}
+
+      - name: Generate Infracost JSON
+        id: infracost
+        run: |
+          infracost breakdown --path=tfplan --format=json --out-file=infracost.json
+          infracost output --path=infracost.json --format=html --out-file=infracost.html
+          infracost output --path=infracost.json --format=table --out-file=infracost-table.txt
+          echo "INFRACOST_OUTPUT<<EOF" >> $GITHUB_OUTPUT
+          cat infracost-table.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Upload Infracost Report
+        uses: actions/upload-artifact@v4.3.1
+        with:
+          name: infracost-report
+          path: infracost.html
+          retention-days: 90
+
+      - name: Get changed files
+        id: changed-files
+        run: |
+          echo "files=$(git diff --name-only origin/master...HEAD | tr '\n' ' ')" >> $GITHUB_OUTPUT
+
+      - name: Get commit messages
+        id: commits
+        run: |
+          COMMITS=$(git log --pretty=format:"- %s" origin/master...HEAD)
+          echo "commits<<EOF" >> $GITHUB_OUTPUT
+          echo "$COMMITS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create Pull Request
+        id: create-pr
+        uses: peter-evans/create-pull-request@v7.0.7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "Terraform changes from ${{ github.ref_name }}"
+          title: "Terraform changes from ${{ github.ref_name }}"
+          body: |
+            ## Terraform Changes
+            
+            This PR contains the following changes:
+            
+            ### Commits:
+            ${{ steps.commits.outputs.commits }}
+            
+            ### Changed Files:
+            ```
+            ${{ steps.changed-files.outputs.files }}
+            ```
+            
+            ### Infracost Analysis:
+            <details>
+            <summary>Click to expand cost analysis</summary>
+            
+            ```
+            ${{ steps.infracost.outputs.INFRACOST_OUTPUT }}
+            ```
+            </details>
+            
+            ### Terraform Plan:
+            <details>
+            <summary>Click to expand</summary>
+            
+            ```
+            ${{ steps.plan.outputs.stdout }}
+            ```
+            </details>
+          branch: "terraform-changes/${{ github.ref_name }}"
+          base: master
+          delete-branch: true
+
+      - name: Create Beta Release
+        if: steps.validate.outcome == 'success' && steps.plan.outcome == 'success'
+        uses: ncipollo/release-action@v1.13.0
+        with:
+          tag: "beta-${{ github.sha }}"
+          name: "Beta Release - ${{ github.ref_name }}"
+          body: |
+            ## Beta Release from ${{ github.ref_name }}
+            
+            ### Commits:
+            ${{ steps.commits.outputs.commits }}
+            
+            ### Changed Files:
+            ```
+            ${{ steps.changed-files.outputs.files }}
+            ```
+            
+            ### Infracost Analysis:
+            ```
+            ${{ steps.infracost.outputs.INFRACOST_OUTPUT }}
+            ```
+          prerelease: true
+          generateReleaseNotes: true
+          makeLatest: false

@@ -10,5 +10,5 @@ output "domain_name" {
 
 output "zone_id" {
   description = "Zone ID of the Route53 hosted zone"
-  value       = data.aws_route53_zone.main.zone_id
+  value       = aws_route53_zone.main.zone_id
 }

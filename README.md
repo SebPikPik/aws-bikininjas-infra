@@ -43,7 +43,7 @@ The infrastructure is deployed in the `eu-west-3` (Paris) region and consists of
 ## Prerequisites
 
 1. AWS account with appropriate permissions
-2. Terraform installed (version >= 1.0.0)
+2. Terraform installed (version >= 1.10.5)
 3. AWS CLI configured
 4. Docker installed (for building and pushing the container image)
 5. Domain `bikininja.click` registered and managed in Route53

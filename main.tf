@@ -1,4 +1,5 @@
 terraform {
+  required_version = "~> 1.10.5"
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -83,8 +84,8 @@ module "dns" {
   
   domain_name         = local.domain_name
   minecraft_subdomain = local.minecraft_subdomain
-  alb_dns_name        = module.ecs.alb_dns_name
-  alb_zone_id         = module.ecs.alb_zone_id
+  nlb_dns_name        = module.ecs.nlb_dns_name
+  nlb_zone_id         = module.ecs.nlb_zone_id
   tags                = local.tags
 }
 
