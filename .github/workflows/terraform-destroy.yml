@@ -2,11 +2,6 @@ name: Terraform Destroy
 
 on:
   workflow_dispatch:
-    inputs:
-      confirmation:
-        description: 'Type "DESTROY" to confirm infrastructure destruction'
-        required: true
-        type: string
   schedule:
     # Run every hour
     - cron: '0 * * * *'
@@ -16,12 +11,7 @@ jobs:
     name: Terraform Destroy
     runs-on: ubuntu-latest
     
-    # Add a condition to ensure the job only runs if:
-    # 1. It's a manual trigger with the correct confirmation
-    # 2. OR it's a scheduled run
-    if: >
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.confirmation == 'DESTROY') ||
-      (github.event_name == 'schedule')
+    # No conditions - run for both manual triggers and scheduled runs
       
     env:
       AWS_REGION: eu-west-3
