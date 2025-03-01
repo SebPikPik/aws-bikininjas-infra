@@ -1,0 +1,86 @@
+name: Terraform Destroy
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'Type "DESTROY" to confirm infrastructure destruction'
+        required: true
+        type: string
+  schedule:
+    # Run every hour
+    - cron: '0 * * * *'
+
+jobs:
+  terraform-destroy:
+    name: Terraform Destroy
+    runs-on: ubuntu-latest
+    
+    # Add a condition to ensure the job only runs if:
+    # 1. It's a manual trigger with the correct confirmation
+    # 2. OR it's a scheduled run
+    if: >
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.confirmation == 'DESTROY') ||
+      (github.event_name == 'schedule')
+      
+    env:
+      AWS_REGION: eu-west-3
+      TF_VERSION: 1.10.5
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4.2.2
+        with:
+          ref: master
+          
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4.1.0
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+          
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3.1.2
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          
+      - name: Terraform Init
+        run: terraform init
+        
+      - name: Check for Running ECS Tasks
+        id: check_ecs
+        run: |
+          # Get the cluster name from Terraform output or hardcode it if needed
+          CLUSTER_NAME=$(terraform output -raw ecs_cluster_name 2>/dev/null || echo "minecraft-cluster")
+          
+          # Check for running tasks
+          RUNNING_TASKS=$(aws ecs list-tasks --cluster $CLUSTER_NAME --query 'taskArns' --output text)
+          
+          if [ -n "$RUNNING_TASKS" ]; then
+            echo "Active Minecraft server tasks detected! Stopping tasks before destroying infrastructure."
+            echo "has_running_tasks=true" >> $GITHUB_OUTPUT
+            
+            # Stop all tasks regardless of trigger type
+            echo "Stopping ECS tasks before destroying infrastructure"
+            aws ecs stop-task --cluster $CLUSTER_NAME --task $(echo $RUNNING_TASKS | tr '\t' ' ')
+            # Wait for tasks to stop
+            echo "Waiting 60 seconds for tasks to stop..."
+            sleep 60
+          else
+            echo "No active Minecraft server tasks detected"
+            echo "has_running_tasks=false" >> $GITHUB_OUTPUT
+          fi
+          
+      - name: Terraform Destroy
+        run: terraform destroy -auto-approve
+        
+      - name: Notify Destruction Complete
+        if: success()
+        run: |
+          echo "Infrastructure successfully destroyed at $(date)"
+          
+          # If this was a scheduled run, add more context
+          if [ "${{ github.event_name }}" == "schedule" ]; then
+            echo "This was an automated scheduled destruction to save costs."
+          fi
