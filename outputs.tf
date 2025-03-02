@@ -8,10 +8,7 @@ output "minecraft_server_address" {
   value       = local.fqdn
 }
 
-output "ecr_repository_url" {
-  description = "URL of the ECR repository"
-  value       = module.ecr.repository_url
-}
+# ECR repository output has been removed
 
 output "ecs_cluster_name" {
   description = "Name of the ECS cluster"

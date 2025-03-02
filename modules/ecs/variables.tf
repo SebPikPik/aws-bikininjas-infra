@@ -44,10 +44,7 @@ variable "efs_access_point_id" {
   type        = string
 }
 
-variable "ecr_repository_url" {
-  description = "URL of the ECR repository"
-  type        = string
-}
+# ECR repository URL variable has been removed
 
 variable "container_port" {
   description = "Port on which the container will receive traffic"

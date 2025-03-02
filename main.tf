@@ -57,14 +57,7 @@ module "networking" {
   tags                = local.tags
 }
 
-# ECR module - Container registry for the Minecraft server image
-module "ecr" {
-  source = "./modules/ecr"
-  
-  name_prefix  = local.name_prefix
-  environment  = local.environment
-  tags         = local.tags
-}
+# ECR module has been removed
 
 # Storage module - EFS for persistent Minecraft data
 module "storage" {
@@ -101,7 +94,6 @@ module "ecs" {
   security_groups     = [module.networking.ecs_security_group_id]
   efs_id              = module.storage.efs_id
   efs_access_point_id = module.storage.efs_access_point_id
-  ecr_repository_url  = module.ecr.repository_url
   container_port      = local.container_port
   minecraft_version   = var.minecraft_version
   minecraft_eula      = var.minecraft_eula

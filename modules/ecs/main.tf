@@ -104,7 +104,7 @@ resource "aws_ecs_task_definition" "minecraft" {
   container_definitions = jsonencode([
     {
       name      = "minecraft"
-      image     = "${var.ecr_repository_url}:latest"
+      image     = "itzg/minecraft-server:latest"
       essential = true
       
       portMappings = [
