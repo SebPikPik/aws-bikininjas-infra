@@ -38,43 +38,176 @@ jobs:
       - name: Terraform Init
         run: terraform init
         
-      - name: Check for Running ECS Tasks
-        id: check_ecs
-        continue-on-error: true  # Continue workflow even if this step fails
+      - name: Stop ECS Tasks
+        id: stop_ecs
+        continue-on-error: true
         run: |
-          # Get the cluster name from Terraform output or hardcode it if needed
+          echo "⛏️ Step 1: Stopping Minecraft server tasks..."
           CLUSTER_NAME=$(terraform output -raw ecs_cluster_name 2>/dev/null || echo "minecraft-cluster")
           
-          # Check for running tasks
-          RUNNING_TASKS=$(aws ecs list-tasks --cluster $CLUSTER_NAME --query 'taskArns' --output text)
+          RUNNING_TASKS=$(aws ecs list-tasks --cluster $CLUSTER_NAME --query 'taskArns' --output text 2>/dev/null || echo "")
           
           if [ -n "$RUNNING_TASKS" ]; then
-            echo "Active Minecraft server tasks detected! Stopping tasks before destroying infrastructure."
-            echo "has_running_tasks=true" >> $GITHUB_OUTPUT
-            
-            # Stop all tasks regardless of trigger type
-            echo "Stopping ECS tasks before destroying infrastructure"
-            aws ecs stop-task --cluster $CLUSTER_NAME --task $(echo $RUNNING_TASKS | tr '\t' ' ')
-            # Wait for tasks to stop
-            echo "Waiting 60 seconds for tasks to stop..."
+            echo "🛑 Found running tasks, stopping them now..."
+            for task in $RUNNING_TASKS; do
+              aws ecs stop-task --cluster $CLUSTER_NAME --task $task
+              echo "  - Stopped task: $task"
+            done
+            echo "⏳ Waiting 60 seconds for tasks to fully stop..."
             sleep 60
           else
-            echo "No active Minecraft server tasks detected"
-            echo "has_running_tasks=false" >> $GITHUB_OUTPUT
+            echo "  - No running tasks found."
+          fi
+      
+      - name: Delete EFS Mount Targets
+        id: delete_efs_mounts
+        continue-on-error: true
+        run: |
+          echo "⛏️ Step 2: Cleaning up EFS mount targets..."
+          # Find EFS file systems
+          EFS_IDS=$(aws efs describe-file-systems --query "FileSystems[*].FileSystemId" --output text 2>/dev/null || echo "")
+          
+          if [ -n "$EFS_IDS" ]; then
+            for EFS_ID in $EFS_IDS; do
+              echo "  - Found EFS: $EFS_ID"
+              MOUNT_TARGETS=$(aws efs describe-mount-targets --file-system-id $EFS_ID --query "MountTargets[*].MountTargetId" --output text 2>/dev/null || echo "")
+              
+              if [ -n "$MOUNT_TARGETS" ]; then
+                echo "🗑️ Deleting EFS mount targets..."
+                for mt in $MOUNT_TARGETS; do
+                  aws efs delete-mount-target --mount-target-id $mt
+                  echo "  - Deleted mount target: $mt"
+                done
+                echo "⏳ Waiting 60 seconds for mount targets to be fully deleted..."
+                sleep 60
+              else
+                echo "  - No mount targets found for $EFS_ID."
+              fi
+            done
+          else
+            echo "  - No EFS file systems found."
+          fi
+      
+      - name: Release Elastic IPs
+        id: release_eips
+        continue-on-error: true
+        run: |
+          echo "⛏️ Step 3: Releasing Elastic IPs..."
+          EIPS=$(aws ec2 describe-addresses --query "Addresses[*].AllocationId" --output text 2>/dev/null || echo "")
+          
+          if [ -n "$EIPS" ]; then
+            for eip in $EIPS; do
+              # Check if the EIP is associated
+              ASSOCIATION_ID=$(aws ec2 describe-addresses --allocation-ids $eip --query "Addresses[0].AssociationId" --output text 2>/dev/null || echo "")
+              
+              if [ "$ASSOCIATION_ID" != "None" ] && [ -n "$ASSOCIATION_ID" ]; then
+                echo "  - Disassociating EIP: $eip (Association: $ASSOCIATION_ID)"
+                aws ec2 disassociate-address --association-id $ASSOCIATION_ID || echo "  - Failed to disassociate, may already be disassociated"
+                sleep 5
+              fi
+              
+              echo "  - Releasing EIP: $eip"
+              aws ec2 release-address --allocation-id $eip || echo "  - Failed to release EIP, may be in use or already released"
+            done
+          else
+            echo "  - No Elastic IPs found."
+          fi
+      
+      - name: Delete NAT Gateways
+        id: delete_nat_gateways
+        continue-on-error: true
+        run: |
+          echo "⛏️ Step 4: Removing NAT Gateways..."
+          NAT_GATEWAYS=$(aws ec2 describe-nat-gateways --filter "Name=state,Values=available,pending" --query "NatGateways[*].NatGatewayId" --output text 2>/dev/null || echo "")
+          
+          if [ -n "$NAT_GATEWAYS" ]; then
+            for nat in $NAT_GATEWAYS; do
+              aws ec2 delete-nat-gateway --nat-gateway-id $nat
+              echo "  - Deleted NAT Gateway: $nat"
+            done
+            echo "⏳ Waiting 90 seconds for NAT Gateways to be deleted..."
+            sleep 90
+          else
+            echo "  - No NAT Gateways found."
+          fi
+      
+      - name: Delete Load Balancers
+        id: delete_load_balancers
+        continue-on-error: true
+        run: |
+          echo "⛏️ Step 5: Removing Load Balancers..."
+          LOAD_BALANCERS=$(aws elbv2 describe-load-balancers --query "LoadBalancers[*].LoadBalancerArn" --output text 2>/dev/null || echo "")
+          
+          if [ -n "$LOAD_BALANCERS" ]; then
+            for lb in $LOAD_BALANCERS; do
+              aws elbv2 delete-load-balancer --load-balancer-arn $lb
+              echo "  - Deleted Load Balancer: $lb"
+            done
+            echo "⏳ Waiting 60 seconds for Load Balancers to be deleted..."
+            sleep 60
+          else
+            echo "  - No Load Balancers found."
           fi
           
-      - name: Clean Up AWS Resources
-        run: |
-          # Install jq for JSON parsing
-          sudo apt-get update && sudo apt-get install -y jq
+          # Also delete target groups
+          TARGET_GROUPS=$(aws elbv2 describe-target-groups --query "TargetGroups[*].TargetGroupArn" --output text 2>/dev/null || echo "")
           
-          # Run the cleanup script
-          ./cleanup-resources.sh
+          if [ -n "$TARGET_GROUPS" ]; then
+            echo "🗑️ Deleting Target Groups..."
+            for tg in $TARGET_GROUPS; do
+              aws elbv2 delete-target-group --target-group-arn $tg
+              echo "  - Deleted Target Group: $tg"
+            done
+          else
+            echo "  - No Target Groups found."
+          fi
+      
+      - name: Delete Network Interfaces
+        id: delete_network_interfaces
+        continue-on-error: true
+        run: |
+          echo "⛏️ Step 6: Cleaning up Network Interfaces..."
+          # Find network interfaces that might be blocking subnet deletion
+          NETWORK_INTERFACES=$(aws ec2 describe-network-interfaces --query "NetworkInterfaces[*].NetworkInterfaceId" --output text 2>/dev/null || echo "")
+          
+          if [ -n "$NETWORK_INTERFACES" ]; then
+            for ni in $NETWORK_INTERFACES; do
+              # Check if the interface is attached
+              ATTACHMENT=$(aws ec2 describe-network-interfaces --network-interface-ids $ni --query "NetworkInterfaces[0].Attachment.AttachmentId" --output text 2>/dev/null || echo "")
+              
+              if [ "$ATTACHMENT" != "None" ] && [ -n "$ATTACHMENT" ]; then
+                echo "  - Detaching network interface: $ni (Attachment: $ATTACHMENT)"
+                aws ec2 detach-network-interface --attachment-id $ATTACHMENT --force
+                # Wait for detachment
+                sleep 10
+              fi
+              
+              echo "  - Deleting network interface: $ni"
+              aws ec2 delete-network-interface --network-interface-id $ni || echo "  - Failed to delete network interface, may be in use"
+            done
+          else
+            echo "  - No network interfaces found."
+          fi
+      
+      - name: Terraform Destroy
+        id: terraform_destroy
+        continue-on-error: true
+        run: |
+          echo "⚡ Running terraform destroy..."
+          terraform destroy -auto-approve
+      
+      - name: Second Attempt - Terraform Destroy
+        if: steps.terraform_destroy.outcome == 'failure'
+        run: |
+          echo "⚠️ First destroy attempt failed, waiting 2 minutes and trying again..."
+          sleep 120
+          echo "⚡ Running terraform destroy (second attempt)..."
+          terraform destroy -auto-approve
         
       - name: Notify Destruction Complete
         if: success()
         run: |
-          echo "Infrastructure successfully destroyed at $(date)"
+          echo "✅ Infrastructure successfully destroyed at $(date)"
           
           # If this was a scheduled run, add more context
           if [ "${{ github.event_name }}" == "schedule" ]; then
